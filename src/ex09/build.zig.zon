@@ -1,0 +1,13 @@
+.{
+    .name = .ex09,
+    .version = "0.0.0",
+    .fingerprint = 0xf71d5f3ebf334898, 
+    .minimum_zig_version = "0.14.0",
+    .dependencies = .{
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}

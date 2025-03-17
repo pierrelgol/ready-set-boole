@@ -1,7 +1,45 @@
 .{
-    .name = "Ready-Set-And-Boole",
+    .name = .Ready_Set_And_Boole,
     .version = "0.0.0",
+    .fingerprint = 0x91d444f9c86b5a29,
+    .minimum_zig_version = "0.14.0",
     .dependencies = .{
+        .ex00 = .{
+            .path = "src/ex00",
+        },
+        .ex01 = .{
+            .path = "src/ex01",
+        },
+        .ex02 = .{
+            .path = "src/ex02",
+        },
+        .ex03 = .{
+            .path = "src/ex03",
+        },
+        .ex04 = .{
+            .path = "src/ex04",
+        },
+        .ex05 = .{
+            .path = "src/ex05",
+        },
+        .ex06 = .{
+            .path = "src/ex06",
+        },
+        .ex07 = .{
+            .path = "src/ex07",
+        },
+        .ex08 = .{
+            .path = "src/ex08",
+        },
+        .ex09 = .{
+            .path = "src/ex09",
+        },
+        .ex10 = .{
+            .path = "src/ex10",
+        },
+        .ex11 = .{
+            .path = "src/ex11",
+        },
     },
     .paths = .{
         "build.zig",
