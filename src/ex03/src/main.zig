@@ -1,39 +1,50 @@
-//! By convention, main.zig is where your main function lives in the case that
-//! you are building an executable. If you are making a library, the convention
-//! is to delete this file and start with root.zig instead.
+const std = @import("std");
+
+const stdout = std.io.getStdOut().writer();
+const stdin = std.io.getStdIn().reader();
+
+const Evaluator = struct {
+    buffer: []u8 = undefined,
+    len: u8 = 0,
+
+    pub fn init(buffer: []u8) Evaluator {
+        return .{
+            .buffer = buffer,
+            .len = 0,
+        };
+    }
+
+    pub fn eraseAll(self: *Evaluator) !void {
+        for (0..self.len) |_| {
+            try stdout.print("\x08 \x08", .{});
+        }
+        self.len = 0;
+    }
+
+    pub fn readUntilDelimiter(self: *Evaluator, delimiter: u8) ?[]const u8 {
+        self.eraseAll() catch return null;
+        std.debug.print("$> ", .{});
+        while (self.len < self.buffer.len) {
+            const byte = stdin.readByte() catch return self.buffer[0..self.len];
+            if (byte == delimiter) {
+                break;
+            }
+            if (byte == std.ascii.control_code.del and self.len != 0) {
+                stdout.print("\x08 \x08", .{}) catch return null;
+            } else {
+                self.buffer[self.len] = byte;
+                stdout.print("{c}", .{byte}) catch return null;
+            }
+        }
+        return self.buffer[0..self.len];
+    }
+};
 
 pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+    var buffer: [32]u8 = undefined;
+    var eval: Evaluator = .init(buffer[0..]);
 
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
-
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
-
-    try bw.flush(); // Don't forget to flush!
+    while (eval.readUntilDelimiter('\n')) |item| {
+        std.debug.print("{s}\n", .{item});
+    }
 }
-
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // Try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
-}
-
-test "fuzz example" {
-    const Context = struct {
-        fn testOne(context: @This(), input: []const u8) anyerror!void {
-            _ = context;
-            // Try passing `--fuzz` to `zig build test` and see if it manages to fail this test case!
-            try std.testing.expect(!std.mem.eql(u8, "canyoufindme", input));
-        }
-    };
-    try std.testing.fuzz(Context{}, Context.testOne, .{});
-}
-
-const std = @import("std");
