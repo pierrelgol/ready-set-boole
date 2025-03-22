@@ -15,16 +15,44 @@ pub fn init(items: []const u8) Lexer {
 
 pub fn next(self: *Lexer) ?Token {
     if (self.pos >= self.items.len) return null;
-    defer self.pos += 1;
     return switch (self.items[self.pos]) {
-        '0', '1' => .{ .kind = .boolean, .value = self.items[self.pos] },
-        else => .{ .kind = .operator, .value = self.items[self.pos] },
+        '0'...'1' => self.boolean(),
+        '!', '&', '|', '^', '>', '=' => self.operator(),
+        else => self.invalid(),
     };
 }
 
-pub const Token = struct {
-    kind: Kind,
-    value: u8,
+pub fn boolean(self: *Lexer) Token {
+    defer self.pos += 1;
+    return switch (self.items[self.pos]) {
+        '0' => .{ .boolean = false },
+        '1' => .{ .boolean = true },
+        else => unreachable,
+    };
+}
+
+pub fn operator(self: *Lexer) Token {
+    defer self.pos += 1;
+    return switch (self.items[self.pos]) {
+        '!' => .{ .operator = '!' },
+        '&' => .{ .operator = '&' },
+        '|' => .{ .operator = '|' },
+        '^' => .{ .operator = '^' },
+        '>' => .{ .operator = '>' },
+        '=' => .{ .operator = '=' },
+        else => unreachable,
+    };
+}
+
+pub fn invalid(self: *Lexer) Token {
+    defer self.pos += 1;
+    return .{ .invalid = self.items[self.pos] };
+}
+
+pub const Token = union(Kind) {
+    boolean: bool,
+    operator: u8,
+    invalid: u8,
 
     pub fn format(
         self: @This(),
@@ -35,11 +63,16 @@ pub const Token = struct {
         _ = fmt;
         _ = options;
 
-        try writer.print("[{s}:{s}]", .{ @tagName(self.kind), self.value });
+        switch (self) {
+            .boolean => try writer.print("'{c}'", .{if (self.boolean) @as(u8, '1') else @as(u8, '0')}),
+            .invalid => try writer.print("'{c}'", .{self.invalid}),
+            .operator => try writer.print("'{c}'", .{self.operator}),
+        }
     }
 };
 
 pub const Kind = enum {
     boolean,
     operator,
+    invalid,
 };
