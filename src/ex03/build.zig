@@ -18,6 +18,8 @@ pub fn build(b: *std.Build) void {
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.addArg("1011||=");
+    run_cmd.addArg("10|1&");
+    run_cmd.addArg("101|&");
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| {
         run_cmd.addArgs(args);

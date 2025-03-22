@@ -36,7 +36,7 @@ pub fn init(buffer: []u8) Interpreter {
 //  >    |             ⇒           | Material condition
 //  =    |             ⇔           | Logical equivalence
 
-pub fn evalFormula(self: *Interpreter, formula: []const u8) !void {
+pub fn evalFormula(self: *Interpreter, formula: []const u8, print_ast: bool) !bool {
     defer self.fba.reset();
     const allocator = self.fba.allocator();
 
@@ -53,7 +53,128 @@ pub fn evalFormula(self: *Interpreter, formula: []const u8) !void {
     const maybe_ast = try parser.parse();
     if (maybe_ast) |ast| {
         if (ast.root) |root| {
-            try Ast.printNode(allocator, root);
+            if (print_ast)
+                try Ast.printNode(allocator, root);
+            const result = evalNode(root);
+            // std.debug.print("Formula : {s} --> {s}\n", .{ formula, if (result) "True" else "False" });
+            return result;
         }
     }
+    return error.EmptyExpression;
+}
+
+pub fn evalNode(node: *Ast.Node) bool {
+    switch (node.token) {
+        .boolean => |b| return b,
+        .operator => |op| {
+            return switch (op) {
+                '!' => result: {
+                    var right: bool = undefined;
+                    if (node.rhs) |rhs| {
+                        right = evalNode(rhs);
+                    }
+                    break :result !right;
+                },
+                '&' => result: {
+                    var left: bool = undefined;
+
+                    if (node.lhs) |lhs| {
+                        left = evalNode(lhs);
+                    }
+
+                    var right: bool = undefined;
+                    if (node.rhs) |rhs| {
+                        right = evalNode(rhs);
+                    }
+                    break :result (left and right);
+                },
+                '|' => result: {
+                    var left: bool = undefined;
+
+                    if (node.lhs) |lhs| {
+                        left = evalNode(lhs);
+                    }
+
+                    var right: bool = undefined;
+                    if (node.rhs) |rhs| {
+                        right = evalNode(rhs);
+                    }
+                    break :result (left or right);
+                },
+                '^' => result: {
+                    var left: bool = undefined;
+
+                    if (node.lhs) |lhs| {
+                        left = evalNode(lhs);
+                    }
+
+                    var right: bool = undefined;
+                    if (node.rhs) |rhs| {
+                        right = evalNode(rhs);
+                    }
+                    break :result !(left or right);
+                },
+                '>' => result: {
+                    var left: bool = undefined;
+
+                    if (node.lhs) |lhs| {
+                        left = evalNode(lhs);
+                    }
+
+                    var right: bool = undefined;
+                    if (node.rhs) |rhs| {
+                        right = evalNode(rhs);
+                    }
+                    break :result (!left) or right;
+                },
+                '=' => result: {
+                    var left: bool = undefined;
+
+                    if (node.lhs) |lhs| {
+                        left = evalNode(lhs);
+                    }
+
+                    var right: bool = undefined;
+                    if (node.rhs) |rhs| {
+                        right = evalNode(rhs);
+                    }
+                    break :result left == right;
+                },
+                else => unreachable,
+            };
+        },
+        else => unreachable,
+    }
+}
+
+var PRINT_AST: bool = true;
+
+test "0" {
+    var buffer: [std.heap.pageSize()]u8 = undefined;
+    var interpreter: Interpreter = .init(buffer[0..]);
+    try std.testing.expect(try interpreter.evalFormula("10&", PRINT_AST) == false);
+}
+
+test "1" {
+    var buffer: [std.heap.pageSize()]u8 = undefined;
+    var interpreter: Interpreter = .init(buffer[0..]);
+    try std.testing.expect(try interpreter.evalFormula("10|", PRINT_AST) == true);
+}
+
+test "2" {
+    var buffer: [std.heap.pageSize()]u8 = undefined;
+    var interpreter: Interpreter = .init(buffer[0..]);
+    try std.testing.expect(try interpreter.evalFormula("11>", PRINT_AST) == true);
+}
+
+test "3" {
+    var buffer: [std.heap.pageSize()]u8 = undefined;
+    var interpreter: Interpreter = .init(buffer[0..]);
+    try std.testing.expect(try interpreter.evalFormula("10=", PRINT_AST) == false);
+}
+
+test "4" {
+    var buffer: [std.heap.pageSize()]u8 = undefined;
+    var interpreter: Interpreter = .init(buffer[0..]);
+    try std.testing.expect(try interpreter.evalFormula("1011||=", PRINT_AST) == true);
 }
