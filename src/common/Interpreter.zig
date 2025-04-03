@@ -66,14 +66,16 @@ fn evalExpression(self: *Interpreter) []const u8 {
     }
 }
 
-fn evalNode(node: *Ast.Node) bool {
-    const tok = switch (node.*) {
+fn getToken(node: *Ast.Node) Token {
+    return switch (node.*) {
         .leaf => node.leaf.tok,
         .unary => node.unary.tok,
         .binary => node.binary.tok,
     };
+}
 
-    return switch (tok) {
+fn evalNode(node: *Ast.Node) bool {
+    return switch (getToken(node)) {
         .operator => |op| if (op == .negation) evalUnaryNode(node) else evalBinaryNode(node),
         .value, .variable => evalLeafNode(node),
     };
@@ -92,54 +94,14 @@ fn evalUnaryNode(node: *Ast.Node) bool {
 }
 
 fn evalBinaryNode(node: *Ast.Node) bool {
-    var left: bool = undefined;
-    var right: bool = undefined;
+    const left: u1 = @intFromBool(evalNode(node.binary.lhs.?));
+    const right: u1 = @intFromBool(evalNode(node.binary.rhs.?));
     return switch (node.binary.tok.operator) {
-        .conjunction => result: {
-            if (node.binary.lhs) |lhs| {
-                left = evalNode(lhs);
-            }
-            if (node.binary.rhs) |rhs| {
-                right = evalNode(rhs);
-            }
-            break :result (left and right);
-        },
-        .disjunction => result: {
-            if (node.binary.lhs) |lhs| {
-                left = evalNode(lhs);
-            }
-            if (node.binary.rhs) |rhs| {
-                right = evalNode(rhs);
-            }
-            break :result (left or right);
-        },
-        .exclusive_disjunction => result: {
-            if (node.binary.lhs) |lhs| {
-                left = evalNode(lhs);
-            }
-            if (node.binary.rhs) |rhs| {
-                right = evalNode(rhs);
-            }
-            break :result (left != right);
-        },
-        .material_condition => result: {
-            if (node.binary.lhs) |lhs| {
-                left = evalNode(lhs);
-            }
-            if (node.binary.rhs) |rhs| {
-                right = evalNode(rhs);
-            }
-            break :result (!left) or right;
-        },
-        .logical_equivalence => result: {
-            if (node.binary.lhs) |lhs| {
-                left = evalNode(lhs);
-            }
-            if (node.binary.rhs) |rhs| {
-                right = evalNode(rhs);
-            }
-            break :result left == right;
-        },
+        .conjunction => left & right == 1,
+        .disjunction => left | right == 1,
+        .exclusive_disjunction => left != right,
+        .material_condition => (@intFromBool((left != 1)) | right) == 1,
+        .logical_equivalence => left == right,
         .negation => unreachable,
     };
 }

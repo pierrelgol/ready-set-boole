@@ -50,8 +50,8 @@ pub const Value = struct {
     }
     pub fn toSymbol(self: Value) u8 {
         return switch (self.value) {
-            true => '0',
-            false => '1',
+            true => '1',
+            false => '0',
         };
     }
 
