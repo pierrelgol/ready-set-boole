@@ -1,13 +1,14 @@
 const std = @import("std");
+const GrayCode = @This();
 
-fn GrayTable(comptime n: usize) type {
+pub fn GrayTable(comptime n: usize) type {
     if (n == 0) @compileError("0 sized types are not supported");
     if (n >= 16) @compileError("n sized types above or equal 16 are not supported");
     return struct {
         const Self = @This();
         const State = std.math.pow(u16, 2, n) - 1;
         pub const IntegerType = std.math.IntFittingRange(0, State);
-        pub const Length = std.math.maxInt(IntegerType);
+        pub const Length = std.math.maxInt(IntegerType) + 1;
         table: [Length]IntegerType = blk: {
             var buf: [Length]IntegerType = undefined;
             @setEvalBranchQuota(20000000);
@@ -28,31 +29,25 @@ fn GrayTable(comptime n: usize) type {
         }
     };
 }
-fn binaryToGray(comptime n: u32) u32 {
-    return n ^ (n >> 1);
+
+test "GrayTable generates correct Gray codes for n = 1" {
+    const table1 = GrayTable(1){};
+    try std.testing.expect(table1.get(0) == 0);
+    try std.testing.expect(table1.get(1) == 1);
 }
 
-fn grayToBinary(comptime n: u32) u32 {
-    var nb = n;
-    nb ^= nb >> 16;
-    nb ^= nb >> 8;
-    nb ^= nb >> 4;
-    nb ^= nb >> 2;
-    nb ^= nb >> 1;
-    return nb;
+test "GrayTable generates correct Gray codes for n = 2" {
+    const table2 = GrayTable(2){};
+    try std.testing.expect(table2.get(0) == 0);
+    try std.testing.expect(table2.get(1) == 1);
+    try std.testing.expect(table2.get(2) == 3);
+    try std.testing.expect(table2.get(3) == 2);
 }
 
-const stdin = std.io.getStdIn().reader();
-const stdout = std.io.getStdOut().writer();
-
-pub fn main() !void {
-    var buffer: [std.heap.pageSize()]u8 = undefined;
-    var fba: std.heap.FixedBufferAllocator = .init(buffer[0..]);
-    const allocator = fba.allocator();
-    const table = GrayTable(15){};
-    while (true) {
-        const number = stdin.readUntilDelimiterAlloc(allocator, '\n', 6) catch continue;
-        const num = std.fmt.parseUnsigned(u16, number, 10) catch 0;
-        std.debug.print("integer : {d:>6} | gray : {d:>6} \n", .{ num, table.get(num) });
+test "GrayTable generates correct Gray codes for n = 3" {
+    const table3 = GrayTable(3){};
+    const expected = [_]u8{ 0, 1, 3, 2, 6, 7, 5, 4 };
+    for (expected, 0..) |expected_val, i| {
+        try std.testing.expect(table3.get(i) == expected_val);
     }
 }
