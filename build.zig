@@ -41,4 +41,12 @@ pub fn build(b: *std.Build) void {
 
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_exe_unit_tests.step);
+
+    const exe_check = b.addExecutable(.{
+        .name = "ready-set-boole",
+        .root_module = exe_mod,
+    });
+
+    const check_step = b.step("check", "check step");
+    check_step.dependOn(&exe_check.step);
 }

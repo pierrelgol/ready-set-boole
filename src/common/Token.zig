@@ -4,7 +4,7 @@ pub const Kind = enum { variable, value, operator };
 
 pub const Token = union(Kind) {
     variable: Variable,
-    value: bool,
+    value: Value,
     operator: Operator,
 
     pub fn initVariable(name: Variable.Identifier, value: ?bool) Token {
@@ -55,7 +55,7 @@ pub const Value = struct {
         };
     }
 
-    pub fn toPrettySymbol(self: Value) u8 {
+    pub fn toPrettySymbol(self: Value) u16 {
         return switch (self.value) {
             true => '⊥',
             false => '⊤',
@@ -70,7 +70,7 @@ pub const Value = struct {
     ) !void {
         _ = fmt;
         _ = options;
-        try writer.print("{}", .{self.toPrettySymbol()});
+        try writer.print("{c}", .{self.toSymbol()});
     }
 };
 
@@ -93,7 +93,7 @@ pub const Operator = enum {
         };
     }
 
-    pub fn toPrettySymbol(self: Operator) u8 {
+    pub fn toPrettySymbol(self: Operator) u16 {
         return switch (self) {
             .negation => '¬',
             .conjunction => '∧',
@@ -112,7 +112,7 @@ pub const Operator = enum {
     ) !void {
         _ = fmt;
         _ = options;
-        try writer.print("{}", .{self.toPrettySymbol()});
+        try writer.print("{c}", .{self.toSymbol()});
     }
 };
 
@@ -143,33 +143,33 @@ pub const Variable = struct {
         try writer.print("({s} = {s})", .{ @tagName(self.name), if (self.value == true) "True" else "False" });
     }
 
-    pub const Identifier = enum {
-        A,
-        B,
-        C,
-        D,
-        E,
-        F,
-        G,
-        H,
-        I,
-        J,
-        K,
-        L,
-        M,
-        N,
-        O,
-        P,
-        Q,
-        R,
-        S,
-        T,
-        U,
-        V,
-        W,
-        X,
-        Y,
-        Z,
-        none,
+    pub const Identifier = enum(u8) {
+        A = 'A',
+        B = 'B',
+        C = 'C',
+        D = 'D',
+        E = 'E',
+        F = 'F',
+        G = 'G',
+        H = 'H',
+        I = 'I',
+        J = 'J',
+        K = 'K',
+        L = 'L',
+        M = 'M',
+        N = 'N',
+        O = 'O',
+        P = 'P',
+        Q = 'Q',
+        R = 'R',
+        S = 'S',
+        T = 'T',
+        U = 'U',
+        V = 'V',
+        W = 'W',
+        X = 'X',
+        Y = 'Y',
+        Z = 'Z',
+        none = '?',
     };
 };

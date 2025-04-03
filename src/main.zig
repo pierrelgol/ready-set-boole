@@ -1,5 +1,6 @@
 const std = @import("std");
 const root = @import("root.zig");
+const Interpreter = root.Interpreter;
 const testing = std.testing;
 
 comptime {
@@ -14,12 +15,11 @@ pub fn main() !void {
     defer _ = gpa_instance.deinit();
 
     const gpa = gpa_instance.allocator();
-    var repl = root.Repl.init(gpa, ">> ");
-    defer repl.deinit();
 
-    while (try repl.readline(null)) |line| {
-        defer repl.freeline(line);
-        try repl.addHistory(line);
-        try repl.println("hi pierre", .{});
+    var eval = try Interpreter.init(gpa);
+    defer eval.deinit();
+
+    while (true) {
+        try eval.dynamicEval();
     }
 }
