@@ -1,6 +1,7 @@
 const std = @import("std");
 const root = @import("root.zig");
 const Interpreter = root.Interpreter.Interpreter;
+const Repl = root.Repl;
 const testing = std.testing;
 
 comptime {
@@ -19,14 +20,17 @@ pub fn main() !void {
     var interpreter = Interpreter.init(gpa);
     defer interpreter.deinit();
 
+    var repl = Repl.init(gpa, ">>> ");
+    defer repl.deinit();
+
     while (true) {
-        const ast = interpreter.eval() catch |err| switch (err) {
+        const ast = interpreter.evalRepl(&repl) catch |err| switch (err) {
             error.CtrlC => break,
             else => {
                 std.log.err("{!}", .{err});
                 continue;
             },
         };
-        interpreter.repl.println("{}", .{ast}) catch break;
+        repl.println("{}", .{ast}) catch break;
     }
 }

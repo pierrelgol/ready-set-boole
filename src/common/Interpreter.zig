@@ -19,7 +19,6 @@ const Repl = @import("Repl.zig").Repl;
 pub const Interpreter = struct {
     gpa: mem.Allocator,
     arena: heap.ArenaAllocator,
-    repl: Repl,
 
     pub const Error = error{EmptyLine} || mem.Allocator.Error || AstError || LexerError || ParserError || TokenError || TokenKindError;
 
@@ -27,31 +26,30 @@ pub const Interpreter = struct {
         return .{
             .gpa = gpa,
             .arena = heap.ArenaAllocator.init(gpa),
-            .repl = .init(gpa, ">>> "),
         };
     }
 
-    pub fn eval(self: *Interpreter) !Ast {
+    pub fn evalRepl(self: *Interpreter, repl: *Repl) !Ast {
         _ = self.arena.reset(.{ .retain_with_limit = std.math.maxInt(u16) });
         const allocator = self.arena.allocator();
 
-        const line = try self.repl.readline(null) orelse return error.EmptyLine;
-        defer self.repl.freeline(line);
-        try self.repl.addHistory(line);
+        const line = try repl.readline(null) orelse return error.EmptyLine;
+        defer repl.freeline(line);
+        try repl.addHistory(line);
 
-        var lexer = try Lexer.init(allocator, line);
+        return try self.eval(allocator, line);
+    }
+
+    pub fn eval(_: *Interpreter, allocator: mem.Allocator, inputs: []const u8) Error!Ast {
+        var lexer = try Lexer.init(allocator, inputs);
         defer lexer.deinit(allocator);
-
         const tokens = try lexer.lex();
-
         var parser = try Parser.init(allocator, tokens);
         defer parser.deinit();
-
         return try parser.parse(allocator);
     }
 
     pub fn deinit(self: *Interpreter) void {
-        self.repl.deinit();
         self.arena.deinit();
     }
 };
