@@ -1,22 +1,45 @@
 const std = @import("std");
-
-pub const Kind = enum { variable, value, operator };
+const meta = std.meta;
 
 pub const Token = union(Kind) {
-    variable: Variable,
-    value: Value,
-    operator: Operator,
+    value: Kind.Value,
+    operator: Kind.Operator,
+    variable: Kind.Variable,
 
-    pub fn initVariable(name: Variable.Identifier, value: ?bool) Token {
-        return .{ .variable = Variable.init(name, value) };
+    pub const Error = error{} || Kind.Error;
+
+    pub fn init(kind: Kind, item: u8) Kind.Error!Token {
+        return switch (kind) {
+            .value => .{
+                .value = try Kind.Value.valueFromU8(item),
+            },
+            .operator => .{
+                .operator = try Kind.Operator.operatorFromU8(item),
+            },
+            .variable => .{
+                .variable = try Kind.Variable.variableFromU8(item),
+            },
+        };
     }
 
-    pub fn initValue(value: bool) Token {
-        return .{ .value = Value.init(value) };
+    pub fn isOperator(self: *const Token) bool {
+        return self.tag() == .operator;
     }
 
-    pub fn initOperator(op: Operator) Token {
-        return .{ .operator = op };
+    pub fn isValue(self: *const Token) bool {
+        return self.tag() == .value;
+    }
+
+    pub fn isVariable(self: *const Token) bool {
+        return self.tag() == .variable;
+    }
+
+    pub fn tag(self: *const Token) Kind {
+        return meta.activeTag(self.*);
+    }
+
+    pub fn equal(self: *const Token, token: Token) bool {
+        return self.tag() == token.tag();
     }
 
     pub fn format(
@@ -28,148 +51,116 @@ pub const Token = union(Kind) {
         _ = fmt;
         _ = options;
 
-        switch (std.meta.activeTag(self)) {
-            .variable => {
-                try writer.print("(Var:{})", .{self.variable});
-            },
-            .value => {
-                try writer.print("(Val:{})", .{self.value});
-            },
-            .operator => {
-                try writer.print("(Ope:{})", .{self.operator});
-            },
+        switch (self) {
+            .value => try writer.print("(Value:{c})", .{self.value.u8FromValue()}),
+            .operator => try writer.print("(Operator:{c})", .{self.operator.u8FromOperator()}),
+            .variable => try writer.print("(Variable:{c})", .{self.variable.u8FromVariable()}),
         }
     }
 };
 
-pub const Value = struct {
-    value: bool = undefined,
+pub const Kind = enum {
+    value,
+    operator,
+    variable,
 
-    pub fn init(value: bool) Value {
-        return .{ .value = value };
-    }
-    pub fn toSymbol(self: Value) u8 {
-        return switch (self.value) {
-            true => '1',
-            false => '0',
-        };
-    }
-
-    pub fn toPrettySymbol(self: Value) u16 {
-        return switch (self.value) {
-            true => '⊥',
-            false => '⊤',
-        };
-    }
-
-    pub fn format(
-        self: @This(),
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
-    ) !void {
-        _ = fmt;
-        _ = options;
-        try writer.print("{c}", .{self.toSymbol()});
-    }
-};
-
-pub const Operator = enum {
-    negation,
-    conjunction,
-    disjunction,
-    exclusive_disjunction,
-    material_condition,
-    logical_equivalence,
-
-    pub fn toSymbol(self: Operator) u8 {
-        return switch (self) {
-            .negation => '!',
-            .conjunction => '&',
-            .disjunction => '|',
-            .exclusive_disjunction => '^',
-            .material_condition => '>',
-            .logical_equivalence => '=',
-        };
-    }
-
-    pub fn toPrettySymbol(self: Operator) u16 {
-        return switch (self) {
-            .negation => '¬',
-            .conjunction => '∧',
-            .disjunction => '∨',
-            .exclusive_disjunction => '⊕',
-            .material_condition => '⇒',
-            .logical_equivalence => '⇔',
-        };
-    }
-
-    pub fn format(
-        self: @This(),
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
-    ) !void {
-        _ = fmt;
-        _ = options;
-        try writer.print("{c}", .{self.toSymbol()});
-    }
-};
-
-pub const Variable = struct {
-    name: Identifier = .none,
-    value: bool = undefined,
-
-    pub const empty: Variable = .{
-        .name = .none,
-        .bool = undefined,
+    pub const Error = error{
+        InvalidValueCharacter,
+        InvalidOperatorCharacter,
+        InvalidVariableCharacter,
     };
 
-    pub fn init(name: Identifier, value: ?bool) Variable {
-        return .{
-            .name = name,
-            .value = value orelse undefined,
-        };
-    }
+    pub const Value = enum {
+        true,
+        false,
 
-    pub fn format(
-        self: @This(),
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
-    ) !void {
-        _ = fmt;
-        _ = options;
-        try writer.print("({s} = {s})", .{ @tagName(self.name), if (self.value == true) "True" else "False" });
-    }
+        pub fn valueFromU8(item: u8) Error!Value {
+            return switch (item) {
+                '0' => Value.false,
+                '1' => Value.true,
+                else => Error.InvalidValueCharacter,
+            };
+        }
 
-    pub const Identifier = enum(u8) {
-        A = 'A',
-        B = 'B',
-        C = 'C',
-        D = 'D',
-        E = 'E',
-        F = 'F',
-        G = 'G',
-        H = 'H',
-        I = 'I',
-        J = 'J',
-        K = 'K',
-        L = 'L',
-        M = 'M',
-        N = 'N',
-        O = 'O',
-        P = 'P',
-        Q = 'Q',
-        R = 'R',
-        S = 'S',
-        T = 'T',
-        U = 'U',
-        V = 'V',
-        W = 'W',
-        X = 'X',
-        Y = 'Y',
-        Z = 'Z',
-        none = '?',
+        pub fn u8FromValue(value: Value) u8 {
+            return switch (value) {
+                .true => '1',
+                .false => '0',
+            };
+        }
+    };
+
+    pub const Operator = enum {
+        negation,
+        conjunction,
+        disjunction,
+        exclusive_disjunction,
+        material_condition,
+        logical_equivalence,
+
+        pub fn operatorFromU8(item: u8) Error!Operator {
+            return switch (item) {
+                '!' => .negation,
+                '&' => .conjunction,
+                '|' => .disjunction,
+                '^' => .exclusive_disjunction,
+                '>' => .material_condition,
+                '=' => .logical_equivalence,
+                else => Error.InvalidOperatorCharacter,
+            };
+        }
+
+        pub fn u8FromOperator(operator: Operator) u8 {
+            return switch (operator) {
+                .negation => '!',
+                .conjunction => '&',
+                .disjunction => '|',
+                .exclusive_disjunction => '^',
+                .material_condition => '>',
+                .logical_equivalence => '=',
+            };
+        }
+    };
+
+    pub const Variable = enum {
+        a,
+        b,
+        c,
+        d,
+        e,
+        f,
+        g,
+        h,
+        i,
+        j,
+        k,
+        l,
+        m,
+        n,
+        o,
+        p,
+        q,
+        r,
+        s,
+        t,
+        u,
+        v,
+        w,
+        x,
+        y,
+        z,
+
+        pub fn variableFromU8(item: u8) Error!Variable {
+            return switch (item) {
+                'A'...'Z' => |v| return map[v - 'A'],
+                else => Error.InvalidVariableCharacter,
+            };
+        }
+
+        pub fn u8FromVariable(variable: Variable) u8 {
+            return @tagName(variable)[0] - 32;
+        }
+
+        const map = [_]Variable{ .a, .b, .c, .d, .e, .f, .g, .h, .i, .j, .k, .l, .m, .n, .o, .p, .q, .r, .s, .t, .u, .v, .w, .x, .y, .z };
     };
 };
