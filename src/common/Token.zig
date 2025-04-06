@@ -60,9 +60,9 @@ pub const Token = union(Kind) {
         _ = options;
 
         switch (self) {
-            .value => try writer.print("(Value:{c})", .{self.value.u8FromValue()}),
-            .operator => try writer.print("(Operator:{c})", .{self.operator.u8FromOperator()}),
-            .variable => try writer.print("(Variable:{c})", .{self.variable.u8FromVariable()}),
+            .value => try writer.print("{c}", .{self.value.u8FromValue()}),
+            .operator => try writer.print("{c}", .{self.operator.u8FromOperator()}),
+            .variable => try writer.print("{c}", .{self.variable.u8FromVariable()}),
         }
     }
 };
