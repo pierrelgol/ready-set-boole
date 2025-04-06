@@ -15,11 +15,12 @@ pub fn main() !void {
     defer _ = gpa_instance.deinit();
 
     const gpa = gpa_instance.allocator();
+    _ = gpa;
 
-    var eval = try Interpreter.init(gpa);
-    defer eval.deinit();
+    // var eval = try Interpreter.init(gpa);
+    // defer eval.deinit();
 
-    while (true) {
-        try eval.dynamicEval();
-    }
+    // while (true) {
+    //     try eval.dynamicEval();
+    // }
 }
