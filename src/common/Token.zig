@@ -38,6 +38,14 @@ pub const Token = union(Kind) {
         return meta.activeTag(self.*);
     }
 
+    pub fn isUnary(self: *const Token) bool {
+        return self.tag() == .operator and self.operator.isUnary();
+    }
+
+    pub fn isBinary(self: *const Token) bool {
+        return self.tag() == .operator and self.operator.isBinary();
+    }
+
     pub fn equal(self: *const Token, token: Token) bool {
         return self.tag() == token.tag();
     }
@@ -119,6 +127,14 @@ pub const Kind = enum {
                 .material_condition => '>',
                 .logical_equivalence => '=',
             };
+        }
+
+        pub fn isUnary(operator: Operator) bool {
+            return operator == .negation;
+        }
+
+        pub fn isBinary(operator: Operator) bool {
+            return operator != .negation;
         }
     };
 
