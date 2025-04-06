@@ -2,7 +2,6 @@ const std = @import("std");
 const mem = std.mem;
 const heap = std.heap;
 const Token = @import("Token.zig").Token;
-const ArrayList = std.ArrayListUnmanaged;
 
 pub const Lexer = struct {
     inputs: []const u8,
