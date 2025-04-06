@@ -30,17 +30,16 @@ pub const Interpreter = struct {
     }
 
     pub fn evalRepl(self: *Interpreter, repl: *Repl) !Ast {
-        _ = self.arena.reset(.{ .retain_with_limit = std.math.maxInt(u16) });
-        const allocator = self.arena.allocator();
-
         const line = try repl.readline(null) orelse return error.EmptyLine;
         defer repl.freeline(line);
         try repl.addHistory(line);
 
-        return try self.eval(allocator, line);
+        return try self.eval(line);
     }
 
-    pub fn eval(_: *Interpreter, allocator: mem.Allocator, inputs: []const u8) Error!Ast {
+    pub fn eval(self: *Interpreter, inputs: []const u8) Error!Ast {
+        _ = self.arena.reset(.{ .retain_with_limit = std.math.maxInt(u16) });
+        const allocator = self.arena.allocator();
         var lexer = try Lexer.init(allocator, inputs);
         defer lexer.deinit(allocator);
         const tokens = try lexer.lex();
