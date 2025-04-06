@@ -1,196 +1,98 @@
 const std = @import("std");
 const mem = std.mem;
 const heap = std.heap;
-const Ast = @This();
 const Token = @import("Token.zig").Token;
+const TokenKind = @import("Token.zig").Kind;
+const AstNode = @import("AstNode.zig").AstNode;
+const AstNodeKind = @import("AstNode.zig").AstNode.Kind;
 
-pub const AstOption = struct {
-    print_buffer: bool = true,
-    print_buffer_size: ?usize = 4096,
-};
+pub const Ast = struct {
+    node_pool: heap.MemoryPool(AstNode),
+    root: ?*AstNode,
 
-arena: heap.ArenaAllocator = undefined,
-print_buffer: ?[]u8,
-root: ?*Node = null,
+    pub const Error = error{} || mem.Allocator.Error;
 
-pub fn init(gpa: mem.Allocator, options: AstOption) !Ast {
-    var arena: heap.ArenaAllocator = .init(gpa);
-    errdefer arena.deinit();
-
-    const print_buffer = if (options.print_buffer)
-        try arena.allocator().alloc(u8, options.print_buffer_size orelse 0)
-    else
-        null;
-
-    return .{
-        .arena = arena,
-        .print_buffer = print_buffer,
-        .root = null,
-    };
-}
-
-pub fn deinit(self: *Ast) void {
-    self.arena.deinit();
-}
-
-pub fn makeLeafNode(self: *Ast, tok: ?Token) !*Node {
-    const node: *Node = try self.arena.allocator().create(Node);
-    node.* = Node.initLeaf(tok);
-    return node;
-}
-
-pub fn makeUnaryNode(self: *Ast, tok: ?Token) !*Node {
-    const node: *Node = try self.arena.allocator().create(Node);
-    node.* = Node.initUnary(tok);
-    return node;
-}
-
-pub fn makeBinaryNode(self: *Ast, tok: ?Token) !*Node {
-    const node: *Node = try self.arena.allocator().create(Node);
-    node.* = Node.initBinary(tok);
-    return node;
-}
-
-pub fn printAst(writer: anytype, prefix: *std.ArrayList(u8), node: *Node) !void {
-    try printAstInner(writer, prefix, node, true);
-}
-
-fn printAstInner(writer: anytype, prefix: *std.ArrayList(u8), node: *Node, isLast: bool) !void {
-    // Extract token based on node kind.
-    const tok = switch (node.*) {
-        .leaf => node.leaf.tok,
-        .unary => node.unary.tok,
-        .binary => node.binary.tok,
-    };
-
-    // Print current node with proper branch character.
-    if (isLast) {
-        try writer.print("{s}└── {s}\n", .{ prefix.items[0..], tok });
-        try prefix.appendSlice("    ");
-    } else {
-        try writer.print("{s}├── {s}\n", .{ prefix.items[0..], tok });
-        try prefix.appendSlice("|   ");
+    pub fn init(gpa: mem.Allocator, capacity: usize) Error!Ast {
+        const pool = try heap.MemoryPool(AstNode).initPreheated(gpa, capacity);
+        return .{
+            .node_pool = pool,
+            .root = null,
+        };
     }
-    // Save current prefix length to later restore it.
-    const prev_len = prefix.items.len;
 
-    // Recurse according to node type.
-    switch (node.*) {
-        .leaf => {},
-        .unary => {
-            if (node.unary.child) |child| {
-                try printAstInner(writer, prefix, child, true);
+    pub fn deinit(self: *Ast) void {
+        self.node_pool.deinit();
+    }
+
+    pub fn makeNode(self: *Ast) Error!*AstNode {
+        return try self.node_pool.create();
+    }
+
+    fn printNode(
+        fba: mem.Allocator,
+        writer: anytype,
+        node: *const AstNode,
+        prefix: []const u8,
+        is_last: bool,
+        is_root: bool,
+    ) !void {
+        if (is_root) {
+            try std.fmt.format(writer, "{s}{}\n", .{ prefix, node });
+        } else {
+            const connector = if (is_last) "└──" else "├──";
+            try std.fmt.format(writer, "{s}{s}{}\n", .{ prefix, connector, node });
+        }
+
+        var new_prefix: []const u8 = "";
+        const prefix_addition = if (is_last) "   " else "│  ";
+
+        if (!is_root) {
+            new_prefix = try std.mem.concat(fba, u8, &.{ prefix, prefix_addition });
+        } else {
+            new_prefix = try std.mem.concat(fba, u8, &.{ prefix, "" });
+        }
+
+        const next_segment = if (is_root) "" else (if (is_last) "   " else "│  ");
+
+        const children_prefix = try std.mem.concat(fba, u8, &.{ prefix, next_segment });
+
+        var children_list: [2]?*const AstNode = [_]?*const AstNode{ null, null };
+        var children_count: usize = 0;
+        if (node.lhs) |left| {
+            children_list[children_count] = left;
+            children_count += 1;
+        }
+        if (node.rhs) |right| {
+            children_list[children_count] = right;
+            children_count += 1;
+        }
+
+        for (children_list[0..children_count], 0..) |maybe_child, idx| {
+            if (maybe_child) |child| {
+                const is_last_child = (idx == children_count - 1);
+
+                try printNode(fba, writer, child, children_prefix, is_last_child, false);
             }
-        },
-        .binary => {
-            var children: [2]*Node = .{ undefined, undefined };
-            var count: usize = 0;
-            if (node.binary.lhs) |lhs| {
-                children[count] = lhs;
-                count += 1;
-            }
-            if (node.binary.rhs) |rhs| {
-                children[count] = rhs;
-                count += 1;
-            }
-            for (children[0..count], 0..) |child, idx| {
-                try printAstInner(writer, prefix, child, idx == count - 1);
-            }
-        },
-    }
-
-    // Restore prefix.
-    try prefix.resize(prev_len);
-}
-
-pub fn format(
-    self: @This(),
-    comptime fmt: []const u8,
-    options: std.fmt.FormatOptions,
-    writer: anytype,
-) !void {
-    _ = fmt;
-    _ = options;
-
-    if (self.print_buffer) |buffer| {
-        var fba_instance: heap.FixedBufferAllocator = .init(buffer[0..]);
-        const fba = fba_instance.allocator();
-
-        var list = std.ArrayList(u8).init(fba);
-        defer list.deinit();
-
-        try printAst(writer, &list, self.root orelse return);
-    }
-}
-
-pub const Kind = enum { unary, binary, leaf };
-
-pub const Node = union(Kind) {
-    unary: UnaryNode,
-    binary: BinaryNode,
-    leaf: LeafNode,
-
-    pub fn initLeaf(tok: ?Token) Node {
-        return .{ .leaf = LeafNode.init(tok) };
-    }
-
-    pub fn initUnary(tok: ?Token) Node {
-        return .{ .unary = UnaryNode.init(tok) };
-    }
-
-    pub fn initBinary(tok: ?Token) Node {
-        return .{ .binary = BinaryNode.init(tok) };
+        }
     }
 
     pub fn format(
         self: @This(),
-        comptime fmt: []const u8,
+        comptime fmt_spec: []const u8,
         options: std.fmt.FormatOptions,
         writer: anytype,
     ) !void {
-        _ = fmt;
+        _ = fmt_spec;
         _ = options;
 
-        switch (std.meta.activeTag(self)) {
-            .leaf => try writer.print("{?}", .{self.leaf.tok}),
-            .unary => try writer.print("{?}", .{self.unary.tok}),
-            .binary => try writer.print("{?}", .{self.binary.tok}),
+        var buffer: [std.heap.pageSize()]u8 = undefined;
+        var fba_instance = std.heap.FixedBufferAllocator.init(&buffer);
+        const fba = fba_instance.allocator();
+
+        if (self.root) |root_node| {
+            try printNode(fba, writer, root_node, "", true, true);
+        } else {
+            try writer.print("(empty)\n", .{});
         }
-    }
-};
-
-pub const LeafNode = struct {
-    tok: Token = undefined,
-
-    pub fn init(tok: ?Token) LeafNode {
-        return .{
-            .tok = tok orelse undefined,
-        };
-    }
-};
-
-pub const UnaryNode = struct {
-    tok: Token = undefined,
-    child: ?*Node = null,
-
-    pub fn init(tok: ?Token) UnaryNode {
-        return .{
-            .tok = tok orelse undefined,
-            .child = null,
-        };
-    }
-};
-
-pub const BinaryNode = struct {
-    tok: Token = undefined,
-    lhs: ?*Node = null,
-    rhs: ?*Node = null,
-
-    pub fn init(tok: ?Token) BinaryNode {
-        return .{
-            .tok = tok orelse undefined,
-            .lhs = null,
-            .rhs = null,
-        };
     }
 };
