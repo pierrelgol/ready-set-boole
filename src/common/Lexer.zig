@@ -1,34 +1,79 @@
 const std = @import("std");
-const Lexer = @This();
+const mem = std.mem;
+const heap = std.heap;
 const Token = @import("Token.zig").Token;
+const ArrayList = std.ArrayListUnmanaged;
 
-input: []const u8,
-index: usize,
+pub const Lexer = struct {
+    inputs: []const u8,
+    tokens: []Token,
 
-pub fn init(input: []const u8) Lexer {
-    return .{
-        .input = input,
-        .index = 0,
-    };
-}
+    pub const Error = error{ InvalidExpression, InvalidCharacter } || mem.Allocator.Error || Token.Error;
 
-fn tokenize(self: *Lexer) !?Token {
-    if (self.index >= self.input.len) return null;
-    defer self.index += 1;
-    return switch (self.input[self.index]) {
-        '0' => Token.initValue(false),
-        '1' => Token.initValue(true),
-        '!' => Token.initOperator(.negation),
-        '&' => Token.initOperator(.conjunction),
-        '|' => Token.initOperator(.disjunction),
-        '^' => Token.initOperator(.exclusive_disjunction),
-        '>' => Token.initOperator(.material_condition),
-        '=' => Token.initOperator(.logical_equivalence),
-        'A'...'Z' => |c| Token.initVariable(@enumFromInt(c), null),
-        else => error.SyntaxError,
-    };
-}
+    pub fn init(gpa: mem.Allocator, inputs: []const u8) Error!Lexer {
+        return .{
+            .inputs = inputs,
+            .tokens = try gpa.alloc(Token, inputs.len),
+        };
+    }
 
-pub fn nextToken(self: *Lexer) !?Token {
-    return try self.tokenize();
+    pub fn deinit(self: *Lexer, gpa: mem.Allocator) void {
+        gpa.free(self.tokens);
+    }
+
+    pub fn lex(lexer: *Lexer) Error![]const Token {
+        for (lexer.inputs, 0..) |input, index| {
+            switch (input) {
+                'A'...'Z' => |variable| lexer.tokens[index] = try Token.init(.variable, variable),
+                '0', '1' => |value| lexer.tokens[index] = try Token.init(.value, value),
+                '!', '&', '|', '^', '>', '=' => |binary_op| lexer.tokens[index] = try Token.init(.operator, binary_op),
+                else => return Error.InvalidCharacter,
+            }
+        }
+
+        return try lexer.validateRpn(lexer.tokens);
+    }
+
+    pub fn validateRpn(_: *Lexer, tokens: []const Token) Error![]const Token {
+        if (tokens.len == 0) {
+            return Error.InvalidExpression;
+        }
+        var virtual_stack_size: usize = 0;
+
+        for (tokens) |token| {
+            switch (token) {
+                .variable, .value => virtual_stack_size += 1,
+                .operator => |op| switch (op) {
+                    .negation => if (virtual_stack_size < 1) return Error.InvalidExpression,
+                    else => if (virtual_stack_size < 2) return Error.InvalidExpression,
+                },
+            }
+        }
+
+        return tokens;
+    }
+
+    pub fn format(
+        self: @This(),
+        comptime fmt: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = fmt;
+        _ = options;
+
+        for (self.tokens) |token| {
+            try writer.print("{}", .{token});
+        }
+    }
+};
+
+test Lexer {
+    const gpa = std.testing.allocator;
+    var lexer = try Lexer.init(gpa, "01|0^A&B!C^D=E>F&G!H|I&J!K|L&M^N!O|P&Q^R>S=T!U=V^W>X=Y!Z&");
+    defer lexer.deinit(gpa);
+
+    const tokens = try lexer.lex();
+    std.debug.print("{}\n", .{lexer});
+    _ = tokens;
 }
