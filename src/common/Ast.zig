@@ -5,6 +5,7 @@ const Token = @import("Token.zig").Token;
 const TokenKind = @import("Token.zig").Kind;
 const AstNode = @import("AstNode.zig").AstNode;
 const AstNodeKind = @import("AstNode.zig").AstNode.Kind;
+const Queue = @import("Queue.zig").QueueUnmanaged;
 
 pub const Ast = struct {
     node_pool: heap.MemoryPool(AstNode),
@@ -93,6 +94,46 @@ pub const Ast = struct {
             try printNode(fba, writer, root_node, "", true, true);
         } else {
             try writer.print("(empty)\n", .{});
+        }
+    }
+};
+
+pub const AstIterator = struct {
+    gpa: mem.Allocator = undefined,
+    ast: *Ast = undefined,
+    queue: Queue(*AstNode) = .init(),
+
+    pub fn init(gpa: mem.Allocator, ast: *Ast) AstIterator {
+        var self: AstIterator = .{
+            .gpa = gpa,
+            .ast = ast,
+            .queue = .init(),
+        };
+        try self.walk(gpa, self.ast.root orelse return self);
+        return self;
+    }
+
+    pub fn next(self: *AstIterator) ?*AstNode {
+        return self.queue.pop(self.gpa);
+    }
+
+    fn walk(self: *AstIterator) !void {
+        var queue: Queue(*AstNode) = .init();
+        defer queue.deinit(self.gpa);
+
+        try queue.push(self.gpa, self.root orelse return);
+
+        while (queue.peek()) |_| {
+            const curr = queue.pop(self.gpa) orelse break;
+            try self.queue.push(self.gpa, curr);
+
+            if (curr.lhs) |left| {
+                try queue.push(self.gpa, left);
+            }
+
+            if (curr.rhs) |right| {
+                try queue.push(self.gpa, right);
+            }
         }
     }
 };
