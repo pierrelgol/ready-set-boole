@@ -22,4 +22,5 @@ test adder {
         const num2 = random.uintAtMost(u32, std.math.maxInt(u32));
         try std.testing.expect(adder(num1, num2) == (num1 +% num2));
     }
+    std.debug.print("Adder : test ran {d}\n", .{test_number});
 }

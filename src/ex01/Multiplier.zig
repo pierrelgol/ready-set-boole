@@ -26,4 +26,5 @@ test multiplier {
         const num2 = random.uintAtMost(u32, std.math.maxInt(u32));
         try std.testing.expect(multiplier(num1, num2) == (num1 *% num2));
     }
+    std.debug.print("Multiplier : test ran {d}\n", .{test_number});
 }
