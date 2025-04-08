@@ -92,6 +92,11 @@ test Evaluator {
     defer interpreter.deinit();
 
     {
+        const input: []const u8 = "01&1|";
+        const result = try interpreter.evalFormula(input);
+        std.debug.print("Formula : {s}\nEvaluate : {s}\nAst : {?}\n", .{ input, if (result) "True" else "False", interpreter.ast });
+    }
+    {
         const input: []const u8 = "10&";
         const result = try interpreter.evalFormula(input);
         std.debug.print("Formula : {s}\nEvaluate : {s}\nAst : {?}\n", .{ input, if (result) "True" else "False", interpreter.ast });

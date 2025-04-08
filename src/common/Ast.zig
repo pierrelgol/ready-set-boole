@@ -13,10 +13,18 @@ pub const Ast = struct {
 
     pub const Error = error{} || mem.Allocator.Error;
 
-    pub fn init(gpa: mem.Allocator, capacity: usize) Error!Ast {
+    pub fn initCapacity(gpa: mem.Allocator, capacity: usize) Error!Ast {
         const pool = try heap.MemoryPool(AstNode).initPreheated(gpa, capacity);
         return .{
             .node_pool = pool,
+            .root = null,
+        };
+    }
+
+    pub fn init(gpa: mem.Allocator) Ast {
+        const node_pool = heap.MemoryPool(AstNode).init(gpa);
+        return .{
+            .node_pool = node_pool,
             .root = null,
         };
     }
@@ -99,11 +107,11 @@ pub const Ast = struct {
 };
 
 pub const AstIterator = struct {
-    gpa: mem.Allocator = undefined,
-    ast: *Ast = undefined,
-    queue: Queue(*AstNode) = .init(),
+    gpa: mem.Allocator,
+    ast: *Ast,
+    queue: Queue(*AstNode),
 
-    pub fn init(gpa: mem.Allocator, ast: *Ast) AstIterator {
+    pub fn init(gpa: mem.Allocator, ast: *Ast) !AstIterator {
         var self: AstIterator = .{
             .gpa = gpa,
             .ast = ast,

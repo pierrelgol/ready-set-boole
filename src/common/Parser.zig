@@ -16,7 +16,7 @@ pub const Parser = struct {
     pub fn init(gpa: mem.Allocator, inputs: []const Token) Error!Parser {
         return .{
             .inputs = inputs,
-            .ast = try Ast.init(gpa, inputs.len),
+            .ast = try Ast.initCapacity(gpa, inputs.len),
         };
     }
 

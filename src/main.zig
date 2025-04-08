@@ -1,8 +1,10 @@
 const std = @import("std");
+const testing = std.testing;
+
+const BooleanEvaluator = @import("root.zig").BooleanEvaluator;
 const root = @import("root.zig");
 const Interpreter = root.Interpreter;
 const Repl = root.Repl;
-const testing = std.testing;
 
 comptime {
     testing.refAllDecls(@import("root.zig"));
@@ -10,6 +12,7 @@ comptime {
     testing.refAllDecls(@import("ex01/Multiplier.zig"));
     testing.refAllDecls(@import("ex02/GrayCode.zig"));
     testing.refAllDecls(@import("ex03/BooleanEvaluation.zig"));
+    testing.refAllDecls(@import("ex04/TruthTable.zig"));
 }
 
 pub fn main() !void {
@@ -25,13 +28,22 @@ pub fn main() !void {
     defer repl.deinit();
 
     while (true) {
-        const ast = interpreter.evalRepl(&repl) catch |err| switch (err) {
+        var evaluator = BooleanEvaluator.init(gpa);
+        defer evaluator.deinit();
+        evaluator.ast = interpreter.evalRepl(&repl) catch |err| switch (err) {
             error.CtrlC => break,
             else => {
                 std.log.err("{!}", .{err});
                 continue;
             },
         };
-        repl.println("{}", .{ast}) catch break;
+        repl.println("{?}", .{evaluator.ast}) catch break;
+        const evaluation = evaluator.evalExpression();
+
+        if (evaluation) |valid| {
+            try repl.println("Result : {s}", .{if (valid) "True" else "False"});
+        } else |err| {
+            try repl.println("Error occurred : {!}", .{err});
+        }
     }
 }
